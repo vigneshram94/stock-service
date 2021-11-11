@@ -24,23 +24,8 @@ public class JwtUtil {
     }
 
     public boolean validateJwtToken(String authToken) {
-        try {
-            Jwts.parser().setSigningKey(jwtSecret).parseClaimsJws(authToken);
-            return true;
-        } catch (SignatureException e) {
-            LOGGER.error("Invalid JWT signature: {}", e.getMessage());
-        } catch (MalformedJwtException e) {
-            LOGGER.error("Invalid JWT token: {}", e.getMessage());
-        } catch (ExpiredJwtException e) {
-            LOGGER.error("JWT token is expired: {}", e.getMessage());
-            throw e;
-
-        } catch (UnsupportedJwtException e) {
-            LOGGER.error("JWT token is unsupported: {}", e.getMessage());
-        } catch (IllegalArgumentException e) {
-            LOGGER.error("JWT claims string is empty: {}", e.getMessage());
-        }
-        return false;
+        Jwts.parser().setSigningKey(jwtSecret).parseClaimsJws(authToken);
+        return true;
     }
 
     public String extractJWT(HttpServletRequest request) {

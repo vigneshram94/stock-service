@@ -3,6 +3,7 @@ package com.fse.stock.filter;
 import com.fse.stock.model.User;
 import com.fse.stock.util.JwtUtil;
 import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.SignatureException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -76,6 +77,10 @@ public class JwtRequestFilter extends OncePerRequestFilter {
         } catch (ExpiredJwtException e) {
             LOGGER.error("Cannot set user authentication: {}", e);
             authEntryPointJwt.commence(request, response, new AuthenticationException("ExpiredJwtException") {
+            });
+        } catch (SignatureException e) {
+            LOGGER.error("Cannot set user authentication: {}", e);
+            authEntryPointJwt.commence(request, response, new AuthenticationException("SignatureException") {
             });
         }
 
