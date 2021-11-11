@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -28,12 +29,14 @@ public class JwtRequestFilter extends OncePerRequestFilter {
 
     @Autowired
     private JwtUtil jwtUtil;
+    @Autowired
+    private AuthEntryPointJwt authEntryPointJwt;
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request)
             throws ServletException {
         String path = request.getRequestURI();
-        if (path.contains("/health") || path.contains("/swagger-ui") || path.contains("/v3/api-docs")) {
+        if (path.contains("/actuator") || path.contains("/swagger-ui") || path.contains("/v3/api-docs")) {
             return true;
         } else {
             return false;
@@ -49,9 +52,14 @@ public class JwtRequestFilter extends OncePerRequestFilter {
             String jwt = null;
             if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
                 jwt = authorizationHeader.substring(7);
+            } else {
+                authEntryPointJwt.commence(request, response, new AuthenticationException("Authentication token not provided") {
+                });
+                filterChain.doFilter(request, response);
+                return;
             }
 
-            if (jwt != null && jwtUtil.validateJwtToken(jwt) && SecurityContextHolder.getContext().getAuthentication() == null) {
+            if (jwt != null && jwtUtil.validateJwtToken(jwt)) {
                 User user = jwtUtil.getUserDetailsFromJwtToken(jwt);
 
                 LOGGER.info("{} User Authenticated with roles [{}]", user.getUsername(), user.getRole());
@@ -64,14 +72,11 @@ public class JwtRequestFilter extends OncePerRequestFilter {
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
                 SecurityContextHolder.getContext().setAuthentication(authentication);
-
             }
-        } /*catch (Exception e) {
+        } catch (ExpiredJwtException e) {
             LOGGER.error("Cannot set user authentication: {}", e);
-        }*/ catch (ExpiredJwtException eje) {
-            LOGGER.info("Security exception for user {} - {}", eje.getClaims().getSubject(), eje.getMessage());
-            ((HttpServletResponse) response).setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            LOGGER.debug("Exception " + eje.getMessage(), eje);
+            authEntryPointJwt.commence(request, response, new AuthenticationException("ExpiredJwtException") {
+            });
         }
 
         filterChain.doFilter(request, response);
@@ -81,5 +86,4 @@ public class JwtRequestFilter extends OncePerRequestFilter {
     private void resetAuthenticationAfterRequest() {
         SecurityContextHolder.getContext().setAuthentication(null);
     }
-
 }
